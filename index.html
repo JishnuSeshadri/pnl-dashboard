@@ -7,6 +7,9 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="P&L Dashboard"/>
 <meta name="theme-color" content="#060d1a"/>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
+<meta http-equiv="Pragma" content="no-cache"/>
+<meta http-equiv="Expires" content="0"/>
 <title>P&L Dashboard</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet"/>
@@ -76,6 +79,7 @@
   .chart-box {
     background: var(--surface); border-radius: 14px; border: 1px solid var(--border);
     padding: 16px 10px 10px; margin-bottom: 16px;
+    height: 280px;
   }
   .chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding: 0 6px; }
   .chart-title { font-size: 12px; color: #94a3b8; }
@@ -486,7 +490,7 @@ function renderChartTab() {
         <span class="chart-title">${metricLabel} · ${vmOverlay?'Month-on-Month Overlay':'Chronological'}</span>
         <span class="chart-unit">₹ Millions</span>
       </div>
-      <canvas id="pnl-chart" height="220"></canvas>
+      <canvas id="pnl-chart" style="max-height:220px"></canvas>
     </div>
   `;
 }
@@ -559,8 +563,7 @@ function buildChart() {
     data: { labels, datasets },
     options: {
       responsive: true,
-      maintainAspectRatio: true,
-      aspectRatio: 1.6,
+      maintainAspectRatio: false,
       interaction: { mode: 'index', intersect: false },
       plugins: {
         legend: {
