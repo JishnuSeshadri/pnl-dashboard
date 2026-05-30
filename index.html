@@ -486,7 +486,7 @@ function renderChartTab() {
         <span class="chart-title">${metricLabel} · ${vmOverlay?'Month-on-Month Overlay':'Chronological'}</span>
         <span class="chart-unit">₹ Millions</span>
       </div>
-      <canvas id="pnl-chart" height="260"></canvas>
+      <canvas id="pnl-chart" height="220"></canvas>
     </div>
   `;
 }
@@ -559,7 +559,8 @@ function buildChart() {
     data: { labels, datasets },
     options: {
       responsive: true,
-      maintainAspectRatio: false,
+      maintainAspectRatio: true,
+      aspectRatio: 1.6,
       interaction: { mode: 'index', intersect: false },
       plugins: {
         legend: {
