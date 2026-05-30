@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="P&L Dashboard"/>
+<meta name="theme-color" content="#060d1a"/>
+<title>P&L Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #060d1a;
+    --surface: #0a1525;
+    --border: #1e3a5f;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --dim: #475569;
+    --fy1: #38bdf8;
+    --fy2: #a78bfa;
+    --fy3: #34d399;
+    --fy4: #fb923c;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'DM Mono', monospace; overflow-x: hidden; }
+
+  /* App shell */
+  #app { display: flex; flex-direction: column; min-height: 100vh; padding-top: var(--safe-top); }
+
+  /* Top nav */
+  .topbar {
+    padding: 16px 20px 12px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; background: var(--bg); z-index: 100;
+    padding-top: calc(16px + var(--safe-top));
+  }
+  .topbar-title { font-family: 'Space Grotesk', sans-serif; font-size: 18px; font-weight: 700; color: var(--text); }
+  .topbar-sub { font-size: 10px; color: var(--muted); letter-spacing: 1px; }
+  .topbar-btn {
+    background: #1e3a5f; border: none; color: var(--fy3); border-radius: 8px;
+    padding: 8px 14px; font-family: 'DM Mono', monospace; font-size: 12px;
+    cursor: pointer; display: flex; align-items: center; gap: 6px;
+  }
+
+  /* Main scroll area */
+  .main { flex: 1; overflow-y: auto; padding: 16px; padding-bottom: calc(80px + var(--safe-bottom)); }
+
+  /* Summary cards */
+  .cards { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 16px; scrollbar-width: none; }
+  .cards::-webkit-scrollbar { display: none; }
+  .card {
+    flex: 0 0 130px; background: var(--surface); border-radius: 12px;
+    border: 1px solid var(--border); padding: 12px 14px;
+    border-left-width: 3px;
+  }
+  .card-fy { font-size: 9px; color: var(--muted); margin-bottom: 4px; }
+  .card-val { font-size: 20px; font-weight: 500; margin-bottom: 2px; }
+  .card-label { font-size: 9px; color: var(--dim); }
+
+  /* Controls */
+  .section-label { font-size: 9px; color: var(--dim); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 8px; }
+  .pill-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+  .pill {
+    padding: 6px 12px; border-radius: 20px; font-size: 11px; font-family: 'DM Mono', monospace;
+    border: 1px solid var(--border); background: transparent; color: var(--muted);
+    cursor: pointer; transition: all 0.15s;
+  }
+  .pill.active { background: #1e3a5f33; }
+
+  /* Chart container */
+  .chart-box {
+    background: var(--surface); border-radius: 14px; border: 1px solid var(--border);
+    padding: 16px 10px 10px; margin-bottom: 16px;
+  }
+  .chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding: 0 6px; }
+  .chart-title { font-size: 12px; color: #94a3b8; }
+  .chart-unit { font-size: 10px; color: var(--border); }
+  canvas { width: 100% !important; }
+
+  /* Table */
+  .table-box { background: var(--surface); border-radius: 14px; border: 1px solid var(--border); overflow: hidden; margin-bottom: 16px; }
+  .table-head { padding: 12px 16px; border-bottom: 1px solid var(--border); font-size: 11px; color: var(--muted); }
+  table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  th { padding: 8px 12px; text-align: right; font-weight: 500; background: var(--bg); }
+  th:first-child { text-align: left; }
+  td { padding: 7px 12px; text-align: right; border-top: 1px solid #0f1f35; color: var(--text); }
+  td:first-child { text-align: left; color: var(--muted); }
+  tr.total-row td { border-top: 2px solid var(--border); background: var(--bg); font-weight: 600; }
+  .neg { color: #f87171 !important; }
+
+  /* Bottom nav */
+  .bottomnav {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: var(--surface); border-top: 1px solid var(--border);
+    display: flex; padding-bottom: var(--safe-bottom);
+    z-index: 100;
+  }
+  .nav-item {
+    flex: 1; display: flex; flex-direction: column; align-items: center;
+    padding: 10px 0; gap: 4px; background: none; border: none;
+    font-family: 'DM Mono', monospace; font-size: 9px; color: var(--muted);
+    cursor: pointer; transition: color 0.15s;
+  }
+  .nav-item.active { color: var(--fy1); }
+  .nav-icon { font-size: 18px; line-height: 1; }
+
+  /* Modal overlay */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+    z-index: 200; align-items: flex-end; justify-content: center;
+    backdrop-filter: blur(4px);
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--surface); border-radius: 20px 20px 0 0;
+    border: 1px solid var(--border); border-bottom: none;
+    width: 100%; max-height: 90vh; overflow-y: auto;
+    padding: 20px 20px calc(20px + var(--safe-bottom));
+    animation: slideUp 0.25s ease;
+  }
+  @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  .modal-handle { width: 36px; height: 4px; background: var(--border); border-radius: 2px; margin: 0 auto 20px; }
+  .modal-title { font-family: 'Space Grotesk', sans-serif; font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+  .modal-sub { font-size: 11px; color: var(--muted); margin-bottom: 20px; }
+
+  /* Form */
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .form-group { display: flex; flex-direction: column; gap: 6px; }
+  .form-group.full { grid-column: 1 / -1; }
+  .form-label { font-size: 10px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; }
+  .form-input {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px 12px; color: var(--text); font-family: 'DM Mono', monospace; font-size: 13px;
+    outline: none; transition: border-color 0.15s;
+  }
+  .form-input:focus { border-color: var(--fy1); }
+  select.form-input { appearance: none; }
+  .form-actions { display: flex; gap: 10px; margin-top: 20px; }
+  .btn-primary {
+    flex: 1; background: #1e3a5f; border: 1px solid var(--fy1); color: var(--fy1);
+    border-radius: 10px; padding: 13px; font-family: 'DM Mono', monospace; font-size: 13px;
+    cursor: pointer; font-weight: 500;
+  }
+  .btn-secondary {
+    flex: 1; background: transparent; border: 1px solid var(--border); color: var(--muted);
+    border-radius: 10px; padding: 13px; font-family: 'DM Mono', monospace; font-size: 13px;
+    cursor: pointer;
+  }
+
+  /* Install banner */
+  .install-banner {
+    background: #0c1f35; border: 1px solid var(--fy3); border-radius: 12px;
+    padding: 12px 16px; margin-bottom: 16px; display: flex; align-items: center; gap: 12px;
+  }
+  .install-banner-text { flex: 1; font-size: 11px; color: #94a3b8; line-height: 1.5; }
+  .install-banner-text b { color: var(--fy3); }
+  .install-dismiss { background: none; border: none; color: var(--muted); font-size: 18px; cursor: pointer; padding: 4px; }
+
+  /* Toast */
+  .toast {
+    position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%);
+    background: #1e3a5f; border: 1px solid var(--fy3); color: var(--fy3);
+    padding: 10px 20px; border-radius: 20px; font-size: 12px;
+    z-index: 300; opacity: 0; transition: opacity 0.3s; pointer-events: none;
+    white-space: nowrap;
+  }
+  .toast.show { opacity: 1; }
+
+  /* Insights view */
+  .insight-card {
+    background: var(--surface); border-radius: 12px; border: 1px solid var(--border);
+    padding: 16px; margin-bottom: 12px;
+  }
+  .insight-title { font-size: 11px; color: var(--muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; }
+  .insight-val { font-size: 24px; font-weight: 500; margin-bottom: 4px; }
+  .insight-sub { font-size: 11px; color: var(--dim); }
+  .insight-row { display: flex; gap: 10px; margin-bottom: 12px; }
+  .insight-row .insight-card { flex: 1; margin-bottom: 0; }
+  .trend-up { color: var(--fy3); }
+  .trend-dn { color: #f87171; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- Top bar -->
+  <div class="topbar">
+    <div>
+      <div class="topbar-title">P&amp;L Dashboard</div>
+      <div class="topbar-sub">ICICI BANK · INFOPARK PH2</div>
+    </div>
+    <button class="topbar-btn" onclick="openAddModal()">＋ Add Month</button>
+  </div>
+
+  <!-- Main content -->
+  <div class="main" id="main-content">
+    <!-- Injected by JS -->
+  </div>
+
+  <!-- Bottom Nav -->
+  <div class="bottomnav">
+    <button class="nav-item active" id="nav-chart" onclick="switchTab('chart')">
+      <span class="nav-icon">📈</span>Chart
+    </button>
+    <button class="nav-item" id="nav-table" onclick="switchTab('table')">
+      <span class="nav-icon">📋</span>Table
+    </button>
+    <button class="nav-item" id="nav-insights" onclick="switchTab('insights')">
+      <span class="nav-icon">💡</span>Insights
+    </button>
+    <button class="nav-item" id="nav-data" onclick="switchTab('data')">
+      <span class="nav-icon">🗃️</span>Data
+    </button>
+  </div>
+</div>
+
+<!-- Add Month Modal -->
+<div class="modal-overlay" id="add-modal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Add Month Data</div>
+    <div class="modal-sub">Enter values in ₹ Millions</div>
+    <div class="form-grid">
+      <div class="form-group full">
+        <div class="form-label">Month & Year</div>
+        <select class="form-input" id="f-month">
+          <option value="Apr">April</option><option value="May">May</option>
+          <option value="Jun">June</option><option value="Jul">July</option>
+          <option value="Aug">August</option><option value="Sep">September</option>
+          <option value="Oct">October</option><option value="Nov">November</option>
+          <option value="Dec">December</option><option value="Jan">January</option>
+          <option value="Feb">February</option><option value="Mar">March</option>
+        </select>
+      </div>
+      <div class="form-group full">
+        <div class="form-label">Financial Year</div>
+        <select class="form-input" id="f-fy">
+          <option value="FY2023-24">FY2023-24</option>
+          <option value="FY2024-25">FY2024-25</option>
+          <option value="FY2025-26">FY2025-26</option>
+          <option value="FY2026-27" selected>FY2026-27</option>
+          <option value="FY2027-28">FY2027-28</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <div class="form-label">NII</div>
+        <input type="number" step="0.01" class="form-input" id="f-nii" placeholder="0.00"/>
+      </div>
+      <div class="form-group">
+        <div class="form-label">Fee Income</div>
+        <input type="number" step="0.01" class="form-input" id="f-fee" placeholder="0.00"/>
+      </div>
+      <div class="form-group">
+        <div class="form-label">Other Income</div>
+        <input type="number" step="0.01" class="form-input" id="f-other" placeholder="0.00"/>
+      </div>
+      <div class="form-group">
+        <div class="form-label">Total Income</div>
+        <input type="number" step="0.01" class="form-input" id="f-total" placeholder="0.00"/>
+      </div>
+      <div class="form-group">
+        <div class="form-label">Opex (negative)</div>
+        <input type="number" step="0.01" class="form-input" id="f-opex" placeholder="-0.00"/>
+      </div>
+      <div class="form-group">
+        <div class="form-label">Core Op Profit</div>
+        <input type="number" step="0.01" class="form-input" id="f-cop" placeholder="0.00"/>
+      </div>
+      <div class="form-group">
+        <div class="form-label">Credit Loss</div>
+        <input type="number" step="0.01" class="form-input" id="f-cl" placeholder="-0.00"/>
+      </div>
+      <div class="form-group">
+        <div class="form-label">PBT</div>
+        <input type="number" step="0.01" class="form-input" id="f-pbt" placeholder="0.00"/>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn-secondary" onclick="closeAddModal()">Cancel</button>
+      <button class="btn-primary" onclick="saveMonth()">Save Month</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ─── DEFAULT DATA ───────────────────────────────────────────────────────────
+const DEFAULT_DATA = {
+  "FY2023-24": [
+    {m:"Apr",NII:1.6,Fee:1.1,Other:0.2,Total:2.9,Opex:-1.6,COP:1.3,CL:-0.0,PBT:1.2},
+    {m:"May",NII:1.7,Fee:0.9,Other:0.3,Total:2.9,Opex:-1.6,COP:1.2,CL:-0.4,PBT:0.8},
+    {m:"Jun",NII:1.7,Fee:0.9,Other:0.4,Total:3.1,Opex:-1.8,COP:1.3,CL:0.1,PBT:1.4},
+    {m:"Jul",NII:1.8,Fee:1.3,Other:0.3,Total:3.4,Opex:-1.4,COP:1.9,CL:-0.0,PBT:1.9},
+    {m:"Aug",NII:1.8,Fee:1.0,Other:0.3,Total:3.1,Opex:-1.7,COP:1.5,CL:-0.0,PBT:1.4},
+    {m:"Sep",NII:1.9,Fee:1.1,Other:0.3,Total:3.2,Opex:-2.1,COP:1.2,CL:-0.0,PBT:1.1},
+    {m:"Oct",NII:1.9,Fee:1.2,Other:0.3,Total:3.5,Opex:-2.0,COP:1.5,CL:-0.0,PBT:1.5},
+    {m:"Nov",NII:1.9,Fee:1.1,Other:0.3,Total:3.3,Opex:-1.6,COP:1.7,CL:-0.1,PBT:1.6},
+    {m:"Dec",NII:2.2,Fee:1.8,Other:0.4,Total:4.5,Opex:-1.8,COP:2.6,CL:-0.1,PBT:2.5},
+    {m:"Jan",NII:2.2,Fee:1.3,Other:0.3,Total:3.8,Opex:-1.9,COP:1.9,CL:-0.6,PBT:1.3},
+    {m:"Feb",NII:2.0,Fee:1.1,Other:0.3,Total:3.4,Opex:-1.7,COP:1.7,CL:-0.3,PBT:1.4},
+    {m:"Mar",NII:2.0,Fee:1.6,Other:0.5,Total:4.0,Opex:-1.7,COP:2.3,CL:-0.1,PBT:2.2},
+  ],
+  "FY2024-25": [
+    {m:"Apr",NII:1.8,Fee:1.4,Other:0.3,Total:3.6,Opex:-1.9,COP:1.7,CL:-0.1,PBT:1.6},
+    {m:"May",NII:2.2,Fee:1.4,Other:0.4,Total:3.9,Opex:-1.7,COP:2.2,CL:0.0,PBT:2.2},
+    {m:"Jun",NII:2.1,Fee:1.3,Other:0.5,Total:3.9,Opex:-1.8,COP:2.0,CL:-0.0,PBT:2.0},
+    {m:"Jul",NII:2.1,Fee:2.6,Other:0.3,Total:5.1,Opex:-2.1,COP:3.0,CL:-0.1,PBT:2.8},
+    {m:"Aug",NII:3.2,Fee:1.7,Other:0.4,Total:5.4,Opex:-2.0,COP:3.4,CL:-0.1,PBT:3.3},
+    {m:"Sep",NII:3.1,Fee:1.7,Other:0.7,Total:5.6,Opex:-1.8,COP:3.7,CL:0.1,PBT:3.8},
+    {m:"Oct",NII:3.1,Fee:1.7,Other:0.6,Total:5.4,Opex:-2.1,COP:3.4,CL:-0.2,PBT:3.2},
+    {m:"Nov",NII:3.1,Fee:1.5,Other:0.6,Total:5.1,Opex:-1.9,COP:3.2,CL:0.1,PBT:3.3},
+    {m:"Dec",NII:3.3,Fee:2.2,Other:0.6,Total:6.0,Opex:-2.0,COP:4.0,CL:0.3,PBT:4.3},
+    {m:"Jan",NII:3.6,Fee:1.7,Other:0.7,Total:6.0,Opex:-2.1,COP:3.8,CL:0.0,PBT:3.8},
+    {m:"Feb",NII:3.2,Fee:1.8,Other:0.7,Total:5.7,Opex:-2.0,COP:3.7,CL:-0.1,PBT:3.6},
+    {m:"Mar",NII:2.3,Fee:2.2,Other:0.4,Total:4.9,Opex:-2.4,COP:2.6,CL:-0.2,PBT:2.4},
+  ],
+  "FY2025-26": [
+    {m:"Apr",NII:2.1,Fee:4.2,Other:0.4,Total:6.7,Opex:-2.4,COP:4.4,CL:-1.1,PBT:3.2},
+    {m:"May",NII:2.2,Fee:5.9,Other:0.4,Total:8.5,Opex:-3.4,COP:5.1,CL:-0.1,PBT:5.0},
+    {m:"Jun",NII:2.2,Fee:1.9,Other:0.5,Total:4.7,Opex:-1.9,COP:2.8,CL:-1.3,PBT:1.5},
+    {m:"Jul",NII:2.3,Fee:2.2,Other:0.4,Total:4.9,Opex:-2.4,COP:2.5,CL:-0.5,PBT:2.0},
+    {m:"Aug",NII:2.4,Fee:2.0,Other:0.4,Total:4.8,Opex:-2.4,COP:2.5,CL:-0.1,PBT:2.4},
+    {m:"Sep",NII:2.6,Fee:2.0,Other:0.6,Total:5.2,Opex:-2.7,COP:2.5,CL:-0.9,PBT:1.6},
+    {m:"Oct",NII:2.6,Fee:1.8,Other:0.4,Total:4.8,Opex:-2.5,COP:2.3,CL:-0.4,PBT:1.9},
+    {m:"Nov",NII:2.7,Fee:4.5,Other:0.3,Total:7.6,Opex:-2.3,COP:5.3,CL:-0.2,PBT:5.1},
+    {m:"Dec",NII:3.4,Fee:2.4,Other:0.3,Total:6.1,Opex:-2.4,COP:3.7,CL:0.0,PBT:3.7},
+    {m:"Jan",NII:3.0,Fee:2.5,Other:0.4,Total:5.8,Opex:-3.1,COP:2.8,CL:0.0,PBT:2.8},
+    {m:"Feb",NII:2.3,Fee:2.2,Other:0.4,Total:4.8,Opex:-2.6,COP:2.3,CL:-0.7,PBT:1.6},
+    {m:"Mar",NII:2.6,Fee:2.8,Other:0.4,Total:5.8,Opex:-2.6,COP:3.2,CL:-0.1,PBT:3.1},
+  ],
+  "FY2026-27": [
+    {m:"Apr",NII:2.7,Fee:2.1,Other:0.4,Total:5.2,Opex:-2.4,COP:2.8,CL:-0.1,PBT:2.7},
+  ],
+};
+
+const FY_COLORS = {
+  "FY2023-24": "#38bdf8",
+  "FY2024-25": "#a78bfa",
+  "FY2025-26": "#34d399",
+  "FY2026-27": "#fb923c",
+  "FY2027-28": "#f472b6",
+};
+const MONTHS = ["Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec","Jan","Feb","Mar"];
+const METRICS = [
+  {key:"PBT",label:"Profit Before Tax"},
+  {key:"NII",label:"Net Interest Income"},
+  {key:"Fee",label:"Fee Income"},
+  {key:"Total",label:"Total Income"},
+  {key:"Opex",label:"Operating Expense"},
+  {key:"COP",label:"Core Op Profit"},
+  {key:"CL",label:"Credit Loss"},
+];
+
+// ─── STATE ───────────────────────────────────────────────────────────────────
+let state = {
+  tab: 'chart',
+  metric: 'PBT',
+  chartType: 'line',
+  viewMode: 'overlay',
+  selectedFYs: null,
+  data: null,
+  showInstallBanner: true,
+};
+
+function loadState() {
+  try {
+    const saved = localStorage.getItem('pnl_data');
+    if (saved) state.data = JSON.parse(saved);
+    else state.data = JSON.parse(JSON.stringify(DEFAULT_DATA));
+    const savedFYs = localStorage.getItem('pnl_selectedFYs');
+    state.selectedFYs = savedFYs ? JSON.parse(savedFYs) : Object.keys(state.data);
+    const banner = localStorage.getItem('pnl_banner');
+    state.showInstallBanner = banner !== 'hidden';
+  } catch(e) {
+    state.data = JSON.parse(JSON.stringify(DEFAULT_DATA));
+    state.selectedFYs = Object.keys(state.data);
+  }
+}
+
+function saveData() {
+  localStorage.setItem('pnl_data', JSON.stringify(state.data));
+  localStorage.setItem('pnl_selectedFYs', JSON.stringify(state.selectedFYs));
+}
+
+// ─── CHART INSTANCE ──────────────────────────────────────────────────────────
+let chartInstance = null;
+
+// ─── RENDER ──────────────────────────────────────────────────────────────────
+function render() {
+  const el = document.getElementById('main-content');
+  if (state.tab === 'chart') el.innerHTML = renderChartTab();
+  else if (state.tab === 'table') el.innerHTML = renderTableTab();
+  else if (state.tab === 'insights') el.innerHTML = renderInsightsTab();
+  else if (state.tab === 'data') el.innerHTML = renderDataTab();
+
+  // update nav
+  ['chart','table','insights','data'].forEach(t => {
+    document.getElementById('nav-'+t).classList.toggle('active', state.tab === t);
+  });
+
+  if (state.tab === 'chart') buildChart();
+}
+
+// ─── CHART TAB ───────────────────────────────────────────────────────────────
+function renderChartTab() {
+  const allFYs = Object.keys(state.data);
+  const metricLabel = METRICS.find(m => m.key === state.metric)?.label;
+
+  // Summary cards
+  const cards = state.selectedFYs.map(fy => {
+    const total = (state.data[fy] || []).reduce((s,d) => s + (d[state.metric]||0), 0);
+    const color = FY_COLORS[fy] || '#94a3b8';
+    const months = (state.data[fy]||[]).length;
+    return `<div class="card" style="border-left-color:${color}">
+      <div class="card-fy">${fy}</div>
+      <div class="card-val" style="color:${color}">₹${Math.abs(total).toFixed(1)}M</div>
+      <div class="card-label">${metricLabel} · ${months}mo</div>
+    </div>`;
+  }).join('');
+
+  // FY pills
+  const fyPills = allFYs.map(fy => {
+    const active = state.selectedFYs.includes(fy);
+    const color = FY_COLORS[fy] || '#94a3b8';
+    return `<button class="pill ${active?'active':''}"
+      style="${active ? `color:${color};border-color:${color};background:${color}22` : ''}"
+      onclick="toggleFY('${fy}')">${fy}</button>`;
+  }).join('');
+
+  // Metric pills
+  const metricPills = METRICS.map(m =>
+    `<button class="pill ${state.metric===m.key?'active':''}"
+      style="${state.metric===m.key ? 'color:#38bdf8;border-color:#38bdf8;background:#38bdf822' : ''}"
+      onclick="setMetric('${m.key}')">${m.label}</button>`
+  ).join('');
+
+  // Chart type pills
+  const ctPills = ['line','bar','area'].map(t =>
+    `<button class="pill ${state.chartType===t && state.viewMode==='overlay'?'active':''}"
+      style="${state.chartType===t && state.viewMode==='overlay' ? 'color:#a78bfa;border-color:#a78bfa;background:#a78bfa22' : ''}"
+      onclick="setChartType('${t}')">${t.charAt(0).toUpperCase()+t.slice(1)}</button>`
+  ).join('');
+
+  const vmOverlay = state.viewMode==='overlay';
+  const vmChron = state.viewMode==='chrono';
+
+  return `
+    ${state.showInstallBanner ? `
+    <div class="install-banner">
+      <div class="install-banner-text">
+        <b>📱 Add to Home Screen</b><br>
+        iOS: tap Share → "Add to Home Screen"<br>
+        Android: tap ⋮ → "Add to Home Screen"
+      </div>
+      <button class="install-dismiss" onclick="dismissBanner()">✕</button>
+    </div>` : ''}
+
+    <div class="cards">${cards}</div>
+
+    <div class="section-label">Financial Year</div>
+    <div class="pill-row">${fyPills}</div>
+
+    <div class="section-label">Metric</div>
+    <div class="pill-row">${metricPills}</div>
+
+    <div class="section-label">Chart Style</div>
+    <div class="pill-row">
+      ${ctPills}
+      <button class="pill ${vmOverlay?'active':''}"
+        style="${vmOverlay ? 'color:#34d399;border-color:#34d399;background:#34d39922' : ''}"
+        onclick="setViewMode('overlay')">YoY Overlay</button>
+      <button class="pill ${vmChron?'active':''}"
+        style="${vmChron ? 'color:#34d399;border-color:#34d399;background:#34d39922' : ''}"
+        onclick="setViewMode('chrono')">Chronological</button>
+    </div>
+
+    <div class="chart-box">
+      <div class="chart-header">
+        <span class="chart-title">${metricLabel} · ${vmOverlay?'Month-on-Month Overlay':'Chronological'}</span>
+        <span class="chart-unit">₹ Millions</span>
+      </div>
+      <canvas id="pnl-chart" height="260"></canvas>
+    </div>
+  `;
+}
+
+function buildChart() {
+  const canvas = document.getElementById('pnl-chart');
+  if (!canvas) return;
+  if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+
+  const metricKey = state.metric;
+  let labels, datasets;
+
+  if (state.viewMode === 'overlay') {
+    labels = MONTHS;
+    datasets = state.selectedFYs.map(fy => {
+      const color = FY_COLORS[fy] || '#94a3b8';
+      const fyData = state.data[fy] || [];
+      const values = MONTHS.map(m => {
+        const row = fyData.find(d => d.m === m);
+        return row != null ? row[metricKey] : null;
+      });
+      return {
+        label: fy,
+        data: values,
+        borderColor: color,
+        backgroundColor: state.chartType === 'bar' ? color + '99' :
+                         state.chartType === 'area' ? color + '33' : color + '22',
+        pointBackgroundColor: color,
+        pointRadius: 4,
+        pointHoverRadius: 7,
+        borderWidth: 2.5,
+        tension: 0.3,
+        fill: state.chartType === 'area',
+        spanGaps: false,
+      };
+    });
+  } else {
+    // Chronological
+    const allPoints = [];
+    const fyOrder = Object.keys(state.data);
+    fyOrder.filter(fy => state.selectedFYs.includes(fy)).forEach(fy => {
+      (state.data[fy]||[]).forEach(d => {
+        const yearStr = fy.slice(2,4);
+        allPoints.push({ label: d.m+"'"+yearStr, value: d[metricKey], fy });
+      });
+    });
+    labels = allPoints.map(p => p.label);
+    const color = '#38bdf8';
+    datasets = [{
+      label: metricKey,
+      data: allPoints.map(p => p.value),
+      borderColor: allPoints.map(p => FY_COLORS[p.fy] || color),
+      backgroundColor: allPoints.map(p => (FY_COLORS[p.fy] || color) + '99'),
+      pointBackgroundColor: allPoints.map(p => FY_COLORS[p.fy] || color),
+      borderColor: color,
+      backgroundColor: color + '33',
+      pointBackgroundColor: allPoints.map(p => FY_COLORS[p.fy] || color),
+      pointRadius: 5,
+      pointHoverRadius: 8,
+      borderWidth: 2,
+      tension: 0.3,
+      fill: state.chartType === 'area',
+    }];
+  }
+
+  const type = state.chartType === 'area' ? 'line' : state.chartType;
+
+  chartInstance = new Chart(canvas, {
+    type,
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: {
+          labels: {
+            color: '#94a3b8', font: { family: 'DM Mono', size: 11 },
+            boxWidth: 12, padding: 16,
+          }
+        },
+        tooltip: {
+          backgroundColor: '#0f1729',
+          borderColor: '#1e3a5f', borderWidth: 1,
+          titleColor: '#64748b', titleFont: { family: 'DM Mono', size: 11 },
+          bodyColor: '#e2e8f0', bodyFont: { family: 'DM Mono', size: 12 },
+          padding: 12,
+          callbacks: {
+            label: ctx => ` ${ctx.dataset.label}: ₹${Math.abs(ctx.parsed.y).toFixed(2)}M`
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { color: '#64748b', font: { family: 'DM Mono', size: 10 }, maxRotation: state.viewMode==='chrono'?45:0 },
+          grid: { color: '#1e3a5f55' }
+        },
+        y: {
+          ticks: { color: '#64748b', font: { family: 'DM Mono', size: 10 }, callback: v => '₹'+v+'M' },
+          grid: { color: '#1e3a5f55' }
+        }
+      }
+    }
+  });
+}
+
+// ─── TABLE TAB ───────────────────────────────────────────────────────────────
+function renderTableTab() {
+  const metricLabel = METRICS.find(m => m.key === state.metric)?.label;
+  const selFYs = state.selectedFYs;
+
+  const headers = selFYs.map(fy => {
+    const color = FY_COLORS[fy] || '#94a3b8';
+    return `<th style="color:${color}">${fy}</th>`;
+  }).join('');
+
+  const rows = MONTHS.map(m => {
+    const cells = selFYs.map(fy => {
+      const row = (state.data[fy]||[]).find(d => d.m === m);
+      if (!row) return `<td style="color:#334155">—</td>`;
+      const val = row[state.metric];
+      const neg = val < 0;
+      return `<td class="${neg?'neg':''}">₹${Math.abs(val).toFixed(2)}M</td>`;
+    }).join('');
+    return `<tr><td>${m}</td>${cells}</tr>`;
+  }).join('');
+
+  const totalCells = selFYs.map(fy => {
+    const total = (state.data[fy]||[]).reduce((s,d) => s + (d[state.metric]||0), 0);
+    const color = FY_COLORS[fy] || '#94a3b8';
+    return `<td style="color:${color}">₹${Math.abs(total).toFixed(1)}M</td>`;
+  }).join('');
+
+  // Metric selector for table
+  const metricPills = METRICS.map(m =>
+    `<button class="pill ${state.metric===m.key?'active':''}"
+      style="${state.metric===m.key ? 'color:#38bdf8;border-color:#38bdf8;background:#38bdf822;font-size:10px' : 'font-size:10px'}"
+      onclick="setMetric('${m.key}')">${m.label}</button>`
+  ).join('');
+
+  return `
+    <div class="section-label">Metric</div>
+    <div class="pill-row">${metricPills}</div>
+    <div class="table-box">
+      <div class="table-head">${metricLabel} · ₹ Millions</div>
+      <div style="overflow-x:auto">
+        <table>
+          <thead><tr><th>Month</th>${headers}</tr></thead>
+          <tbody>
+            ${rows}
+            <tr class="total-row"><td>Full Year</td>${totalCells}</tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+// ─── INSIGHTS TAB ────────────────────────────────────────────────────────────
+function renderInsightsTab() {
+  const allFYs = Object.keys(state.data);
+  const latestFY = allFYs[allFYs.length - 1];
+  const prevFY = allFYs[allFYs.length - 2];
+  const latestData = state.data[latestFY] || [];
+  const prevData = state.data[prevFY] || [];
+
+  // Best month PBT overall
+  let bestPBT = -Infinity, bestLabel = '';
+  allFYs.forEach(fy => {
+    (state.data[fy]||[]).forEach(d => {
+      if (d.PBT > bestPBT) { bestPBT = d.PBT; bestLabel = `${d.m} · ${fy}`; }
+    });
+  });
+
+  // YoY PBT growth (full year)
+  const latestPBT = latestData.reduce((s,d) => s+d.PBT, 0);
+  const prevPBT = prevData.reduce((s,d) => s+d.PBT, 0);
+  const yoyPct = prevPBT ? ((latestPBT - prevPBT) / Math.abs(prevPBT) * 100).toFixed(1) : 'N/A';
+  const yoyUp = parseFloat(yoyPct) >= 0;
+
+  // Avg monthly PBT latest FY
+  const avgPBT = latestData.length ? (latestPBT / latestData.length).toFixed(2) : '—';
+
+  // Best month fee income
+  let bestFee = -Infinity, bestFeeLabel = '';
+  allFYs.forEach(fy => {
+    (state.data[fy]||[]).forEach(d => {
+      if (d.Fee > bestFee) { bestFee = d.Fee; bestFeeLabel = `${d.m} · ${fy}`; }
+    });
+  });
+
+  // Cost-to-income (latest FY avg)
+  const ctiArr = latestData.map(d => d.Total > 0 ? (Math.abs(d.Opex)/d.Total*100) : null).filter(Boolean);
+  const avgCTI = ctiArr.length ? (ctiArr.reduce((a,b)=>a+b,0)/ctiArr.length).toFixed(1) : '—';
+
+  return `
+    <div class="insight-row">
+      <div class="insight-card">
+        <div class="insight-title">Best Month PBT</div>
+        <div class="insight-val" style="color:#38bdf8">₹${bestPBT.toFixed(2)}M</div>
+        <div class="insight-sub">${bestLabel}</div>
+      </div>
+      <div class="insight-card">
+        <div class="insight-title">Best Fee Month</div>
+        <div class="insight-val" style="color:#a78bfa">₹${bestFee.toFixed(2)}M</div>
+        <div class="insight-sub">${bestFeeLabel}</div>
+      </div>
+    </div>
+    <div class="insight-row">
+      <div class="insight-card">
+        <div class="insight-title">YoY PBT Growth</div>
+        <div class="insight-val ${yoyUp?'trend-up':'trend-dn'}">${yoyUp?'▲':'▼'} ${Math.abs(yoyPct)}%</div>
+        <div class="insight-sub">${prevFY} → ${latestFY}</div>
+      </div>
+      <div class="insight-card">
+        <div class="insight-title">Avg Monthly PBT</div>
+        <div class="insight-val" style="color:#fb923c">₹${avgPBT}M</div>
+        <div class="insight-sub">${latestFY} (${latestData.length} months)</div>
+      </div>
+    </div>
+    <div class="insight-card">
+      <div class="insight-title">Avg Cost-to-Income Ratio</div>
+      <div class="insight-val" style="color:#34d399">${avgCTI}%</div>
+      <div class="insight-sub">${latestFY} · Opex ÷ Total Income</div>
+    </div>
+    <div class="insight-card">
+      <div class="insight-title">Total PBT · All Years</div>
+      ${allFYs.map(fy => {
+        const tot = (state.data[fy]||[]).reduce((s,d)=>s+d.PBT,0);
+        const color = FY_COLORS[fy]||'#94a3b8';
+        const months = (state.data[fy]||[]).length;
+        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #1e3a5f">
+          <span style="color:${color};font-size:12px">${fy}</span>
+          <span style="color:#e2e8f0;font-size:13px">₹${Math.abs(tot).toFixed(1)}M <span style="color:#475569;font-size:10px">(${months}mo)</span></span>
+        </div>`;
+      }).join('')}
+    </div>
+  `;
+}
+
+// ─── DATA MANAGEMENT TAB ─────────────────────────────────────────────────────
+function renderDataTab() {
+  const allFYs = Object.keys(state.data);
+  let html = `
+    <div class="section-label">Manage Data</div>
+    <div class="insight-card" style="margin-bottom:12px">
+      <div style="font-size:11px;color:#94a3b8;line-height:1.7">
+        Data is saved on this device. Tap <b style="color:#38bdf8">+ Add Month</b> (top right) to enter new month data.<br>
+        Tap any entry below to delete it.
+      </div>
+    </div>
+  `;
+
+  allFYs.forEach(fy => {
+    const color = FY_COLORS[fy] || '#94a3b8';
+    const rows = state.data[fy] || [];
+    html += `<div class="table-box" style="margin-bottom:12px">
+      <div class="table-head" style="display:flex;justify-content:space-between;align-items:center">
+        <span style="color:${color}">${fy}</span>
+        <span style="color:#475569">${rows.length} months</span>
+      </div>`;
+    rows.forEach((d, i) => {
+      html += `<div style="display:flex;justify-content:space-between;align-items:center;
+        padding:10px 16px;border-top:1px solid #0f1f35;font-size:12px">
+        <span style="color:#94a3b8">${d.m}</span>
+        <span>NII ₹${d.NII}M · Fee ₹${d.Fee}M · PBT <span style="color:${d.PBT<0?'#f87171':color}">₹${d.PBT}M</span></span>
+        <button onclick="deleteEntry('${fy}',${i})" style="background:none;border:none;color:#f87171;font-size:16px;cursor:pointer;padding:0 4px">✕</button>
+      </div>`;
+    });
+    html += `</div>`;
+  });
+
+  html += `<div style="display:flex;gap:10px;margin-top:8px">
+    <button class="btn-secondary" onclick="resetToDefault()" style="font-size:11px">Reset to Default Data</button>
+    <button class="btn-primary" onclick="exportData()" style="font-size:11px">Export JSON</button>
+  </div>`;
+
+  return html;
+}
+
+// ─── ACTIONS ─────────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  state.tab = tab;
+  render();
+}
+
+function toggleFY(fy) {
+  if (state.selectedFYs.includes(fy)) {
+    if (state.selectedFYs.length > 1) state.selectedFYs = state.selectedFYs.filter(f => f !== fy);
+  } else {
+    state.selectedFYs.push(fy);
+  }
+  saveData();
+  render();
+}
+
+function setMetric(m) { state.metric = m; render(); }
+function setChartType(t) { state.chartType = t; state.viewMode = 'overlay'; render(); }
+function setViewMode(v) { state.viewMode = v; render(); }
+
+function dismissBanner() {
+  state.showInstallBanner = false;
+  localStorage.setItem('pnl_banner', 'hidden');
+  render();
+}
+
+function openAddModal() {
+  document.getElementById('add-modal').classList.add('open');
+}
+function closeAddModal() {
+  document.getElementById('add-modal').classList.remove('open');
+}
+
+function saveMonth() {
+  const month = document.getElementById('f-month').value;
+  const fy = document.getElementById('f-fy').value;
+  const entry = {
+    m: month,
+    NII: parseFloat(document.getElementById('f-nii').value) || 0,
+    Fee: parseFloat(document.getElementById('f-fee').value) || 0,
+    Other: parseFloat(document.getElementById('f-other').value) || 0,
+    Total: parseFloat(document.getElementById('f-total').value) || 0,
+    Opex: parseFloat(document.getElementById('f-opex').value) || 0,
+    COP: parseFloat(document.getElementById('f-cop').value) || 0,
+    CL: parseFloat(document.getElementById('f-cl').value) || 0,
+    PBT: parseFloat(document.getElementById('f-pbt').value) || 0,
+  };
+  if (!state.data[fy]) state.data[fy] = [];
+  // Remove existing entry for same month if any
+  state.data[fy] = state.data[fy].filter(d => d.m !== month);
+  // Insert in correct MONTHS order
+  state.data[fy].push(entry);
+  state.data[fy].sort((a,b) => MONTHS.indexOf(a.m) - MONTHS.indexOf(b.m));
+  // Add FY to selected if not there
+  if (!state.selectedFYs.includes(fy)) state.selectedFYs.push(fy);
+  saveData();
+  closeAddModal();
+  showToast(`✓ ${month} ${fy} saved`);
+  render();
+}
+
+function deleteEntry(fy, idx) {
+  if (!confirm('Delete this entry?')) return;
+  state.data[fy].splice(idx, 1);
+  saveData();
+  render();
+}
+
+function resetToDefault() {
+  if (!confirm('Reset all data to original values?')) return;
+  state.data = JSON.parse(JSON.stringify(DEFAULT_DATA));
+  state.selectedFYs = Object.keys(state.data);
+  saveData();
+  showToast('Data reset to default');
+  render();
+}
+
+function exportData() {
+  const blob = new Blob([JSON.stringify(state.data, null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'pnl_data.json';
+  a.click();
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+loadState();
+render();
+</script>
+</body>
+</html>
