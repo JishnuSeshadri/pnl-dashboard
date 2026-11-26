@@ -187,6 +187,27 @@
   .insight-row .insight-card { flex: 1; margin-bottom: 0; }
   .trend-up { color: var(--fy3); }
   .trend-dn { color: #f87171; }
+
+  /* Segments tab (group & product view, ₹ Crore) */
+  .seg-box {
+    background: var(--surface); border-radius: 14px; border: 1px solid var(--border);
+    padding: 16px 10px 12px; margin-bottom: 16px;
+  }
+  .seg-box .chart-unit { color: var(--muted); }
+  .seg-wrap { position: relative; width: 100%; }
+  .seg-note { font-size: 10px; color: var(--dim); line-height: 1.6; padding: 0 6px; margin: -6px 0 16px; }
+  .seg-legend { margin-top: 12px; padding: 0 6px; }
+  .seg-legend-row {
+    display: flex; align-items: center; gap: 8px; padding: 6px 0;
+    border-top: 1px solid #0f1f35; font-size: 11px;
+  }
+  .seg-sw { width: 10px; height: 10px; border-radius: 3px; flex: 0 0 10px; }
+  .seg-legend-name { flex: 1; color: #94a3b8; }
+  .seg-legend-val { color: var(--text); font-variant-numeric: tabular-nums; }
+  .seg-legend-pct { color: var(--muted); width: 44px; text-align: right; font-variant-numeric: tabular-nums; }
+  .seg-total { font-size: 11px; color: var(--muted); padding: 0 6px 4px; }
+  .seg-total b { color: var(--text); font-weight: 500; }
+  td.num, th.num { font-variant-numeric: tabular-nums; }
 </style>
 </head>
 <body>
@@ -216,6 +237,9 @@
     </button>
     <button class="nav-item" id="nav-insights" onclick="switchTab('insights')">
       <span class="nav-icon">💡</span>Insights
+    </button>
+    <button class="nav-item" id="nav-segments" onclick="switchTab('segments')">
+      <span class="nav-icon">🧩</span>Segments
     </button>
     <button class="nav-item" id="nav-data" onclick="switchTab('data')">
       <span class="nav-icon">🗃️</span>Data
@@ -371,6 +395,9 @@ let state = {
   selectedFYs: null,
   data: null,
   showInstallBanner: true,
+  segView: 'charts',     // 'charts' | 'tables'
+  segGroup: 'RAPG',      // 'RAPG' | 'RIBG' | 'BB'
+  segMeasure: 'pbt',     // 'pbt' | 'book'
 };
 
 function loadState() {
@@ -402,14 +429,16 @@ function render() {
   if (state.tab === 'chart') el.innerHTML = renderChartTab();
   else if (state.tab === 'table') el.innerHTML = renderTableTab();
   else if (state.tab === 'insights') el.innerHTML = renderInsightsTab();
+  else if (state.tab === 'segments') el.innerHTML = renderSegmentsTab();
   else if (state.tab === 'data') el.innerHTML = renderDataTab();
 
   // update nav
-  ['chart','table','insights','data'].forEach(t => {
+  ['chart','table','insights','segments','data'].forEach(t => {
     document.getElementById('nav-'+t).classList.toggle('active', state.tab === t);
   });
 
   if (state.tab === 'chart') buildChart();
+  if (state.tab === 'segments') buildSegCharts();
 }
 
 // ─── CHART TAB ───────────────────────────────────────────────────────────────
@@ -729,6 +758,237 @@ function renderInsightsTab() {
       }).join('')}
     </div>
   `;
+}
+
+// ─── SEGMENTS TAB · group & product view (₹ Crore) ───────────────────────────
+// Source: Branch Report Detail (branch 7229). Original figures are ₹ millions; here ₹ Crore = mn ÷ 10.
+// To add a period (e.g. "YTD Oct'25"): add it to SEG.periods, SEG.groups.*, SEG.groupPBT, SEG.groupBook
+// and give it a colour in SEG_PERIOD_COLORS.
+const SEG = {"periods":["FY2024-25","FY2025-26","YTD Oct'26"],"groups":{"RAPG":{"FY2024-25":{"pbt":{"Mortgage":0.24,"Auto Loan":0.104,"Personal Loan":0.196,"Credit Card":0.393,"Business Card":0.03,"Commercial Business":0.024,"Education Loan":0.0,"Others":0.012},"book":{"Mortgage":12.604,"Auto Loan":3.5,"Personal Loan":7.687,"Credit Card":3.703,"Business Card":0.286,"Commercial Business":1.296,"Education Loan":0.0,"Others":0.493}},"FY2025-26":{"pbt":{"Mortgage":-0.058,"Auto Loan":-0.014,"Personal Loan":0.164,"Credit Card":0.25,"Business Card":0.083,"Commercial Business":0.034,"Education Loan":0.007,"Others":0.019},"book":{"Mortgage":16.057,"Auto Loan":4.594,"Personal Loan":8.407,"Credit Card":4.185,"Business Card":0.335,"Commercial Business":0.768,"Education Loan":0.712,"Others":0.186}},"YTD Oct'26":{"pbt":{"Mortgage":0.267,"Auto Loan":0.054,"Personal Loan":0.199,"Credit Card":0.339,"Business Card":0.063,"Commercial Business":0.011,"Education Loan":0.011,"Others":0.004},"book":{"Mortgage":20.849,"Auto Loan":6.473,"Personal Loan":11.413,"Credit Card":5.486,"Business Card":0.205,"Commercial Business":0.439,"Education Loan":0.774,"Others":0.088}}},"RIBG":{"FY2024-25":{"pbt":{"Jewel Loan":0.008,"FF Retail":0.01,"Others":0.005},"book":{"Jewel Loan":0.574,"FF Retail":0.2,"Others":0.081}},"FY2025-26":{"pbt":{"Jewel Loan":0.042,"FF Retail":0.024,"Others":0.001},"book":{"Jewel Loan":0.641,"FF Retail":0.428,"Others":0.0}},"YTD Oct'26":{"pbt":{"Jewel Loan":-0.007,"FF Retail":0.017,"Others":0.0},"book":{"Jewel Loan":1.287,"FF Retail":0.318,"Others":0.0}}},"BB":{"FY2024-25":{"pbt":{"Business Banking (Excl. Insta OD)":0.079,"Insta OD":0.006,"Others":0.0},"book":{"Business Banking (Excl. Insta OD)":0.464,"Insta OD":0.008,"Others":0.0}},"FY2025-26":{"pbt":{"Business Banking (Excl. Insta OD)":0.08,"Insta OD":0.047,"Others":0.0},"book":{"Business Banking (Excl. Insta OD)":0.7,"Insta OD":1.049,"Others":0.0}},"YTD Oct'26":{"pbt":{"Business Banking (Excl. Insta OD)":0.043,"Insta OD":0.073,"Others":0.0},"book":{"Business Banking (Excl. Insta OD)":0.675,"Insta OD":1.039,"Others":0.0}}}},"groupPBT":{"FY2024-25":{"RAPG":0.999,"RLG":1.806,"RIBG":0.023,"BB":0.085,"WBG":0.721,"Others":0.0,"_total":3.634},"FY2025-26":{"RAPG":0.485,"RLG":1.355,"RIBG":0.067,"BB":0.127,"WBG":1.351,"Others":0.002,"_total":3.387},"YTD Oct'26":{"RAPG":0.948,"RLG":0.904,"RIBG":0.01,"BB":0.116,"WBG":0.846,"Others":0.001,"_total":2.825}},"groupBook":{"FY2024-25":{"RAPG":29.569,"RIBG":0.855,"BB":0.472},"FY2025-26":{"RAPG":35.244,"RIBG":1.069,"BB":1.749},"YTD Oct'26":{"RAPG":45.727,"RIBG":1.605,"BB":1.714}},"branchPBT":{"FY2023-24":1.844,"FY2024-25":3.635,"FY2025-26":3.388,"YTD Oct'26":2.826}};
+
+const SEG_SURFACE = '#0a1525';
+const SEG_PERIOD_COLORS = {
+  "FY2023-24": FY_COLORS["FY2023-24"],
+  "FY2024-25": FY_COLORS["FY2024-25"],
+  "FY2025-26": FY_COLORS["FY2025-26"],
+  "YTD Oct'26": FY_COLORS["FY2026-27"],
+};
+const SEG_GROUPS = [
+  {key:'RAPG', label:'RAPG'},
+  {key:'RIBG', label:'RIBG'},
+  {key:'BB',   label:'Business Banking'},
+];
+const SEG_GROUP_LABEL = {RAPG:'RAPG', RLG:'RLG', WBG:'WBG', BB:'Business Banking', RIBG:'RIBG', Others:'Others (SCF, FCNR)'};
+const SEG_PRODUCT_LABEL = {"Business Banking (Excl. Insta OD)":"BB (excl. Insta OD)"};
+const SEG_OTHERS_NOTE = {
+  RAPG: 'Others = Two Wheeler, HFC, Loan against Securities, Dealer funding, Retail Others.',
+  RIBG: 'Others = SHG, RWRF, Kisan Kalpa Vriksh, Farm Equipment.',
+  BB:   'Business Banking is split into Insta OD and the rest.',
+};
+// Pie colours follow the entity (same entity = same colour in both pies). Validated on the app surface.
+const SEG_PIE_COLORS = {
+  RAPG:'#338ced', RLG:'#e76624', WBG:'#00a888', BB:'#d28e05', RIBG:'#9887ef',
+  'Credit Card':'#338ced', 'Mortgage':'#e76624', 'Personal Loan':'#00a888', 'Business Banking':'#d28e05',
+  'Business Card':'#e24d8b', 'Auto Loan':'#0aac23', 'Other RAPG':'#6b7a90',
+};
+let segCharts = [];
+
+const cr = v => { const r = Math.round(Math.abs(v) * 100 + 1e-9) / 100; return (v < 0 && r > 0 ? '-' : '') + r.toFixed(2); };
+const segPlabel = p => SEG_PRODUCT_LABEL[p] || p;
+
+function segProducts(g) {
+  // keep a product only if it has a non-zero value in some period (PBT or book)
+  const first = SEG.groups[g][SEG.periods[0]].pbt;
+  return Object.keys(first).filter(k => SEG.periods.some(p =>
+    Math.abs(SEG.groups[g][p].pbt[k]) > 0.0004 || Math.abs(SEG.groups[g][p].book[k]) > 0.0004));
+}
+
+function segGroupPie() {
+  const p = "YTD Oct'26", d = SEG.groupPBT[p];
+  return ['RAPG','RLG','WBG','BB','RIBG']
+    .map(k => ({name: SEG_GROUP_LABEL[k], value: d[k], color: SEG_PIE_COLORS[k]}))
+    .filter(x => x.value > 0).sort((a,b) => b.value - a.value);
+}
+function segAssetPie() {
+  const p = "YTD Oct'26", r = SEG.groups.RAPG[p].pbt;
+  const rows = [
+    ['Credit Card', r['Credit Card']], ['Mortgage', r['Mortgage']], ['Personal Loan', r['Personal Loan']],
+    ['Business Banking', SEG.groupPBT[p].BB], ['Business Card', r['Business Card']], ['Auto Loan', r['Auto Loan']],
+    ['Other RAPG', r['Commercial Business'] + r['Education Loan'] + r['Others']],
+    ['RIBG', SEG.groupPBT[p].RIBG],
+  ];
+  return rows.map(([name, value]) => ({name, value, color: SEG_PIE_COLORS[name === 'RIBG' ? 'RIBG' : name]}))
+    .filter(x => x.value > 0).sort((a,b) => b.value - a.value);
+}
+
+function segPieBox(id, title, rows) {
+  const total = rows.reduce((s,x) => s + x.value, 0);
+  const legend = rows.map(x => `<div class="seg-legend-row">
+      <span class="seg-sw" style="background:${x.color}"></span>
+      <span class="seg-legend-name">${x.name}</span>
+      <span class="seg-legend-val">₹${cr(x.value)} Cr</span>
+      <span class="seg-legend-pct">${(x.value/total*100).toFixed(1)}%</span>
+    </div>`).join('');
+  return `<div class="seg-box">
+    <div class="chart-header"><span class="chart-title">${title}</span><span class="chart-unit">₹ Crore</span></div>
+    <div class="seg-total">YTD Oct'26 · total <b>₹${cr(total)} Cr</b></div>
+    <div class="seg-wrap" style="height:210px"><canvas id="${id}"></canvas></div>
+    <div class="seg-legend">${legend}</div>
+  </div>`;
+}
+
+function segTable(title, head, rows, totalRow) {
+  const th = head.map((h,i) => i === 0 ? `<th>${h}</th>` :
+    `<th class="num" style="color:${SEG_PERIOD_COLORS[h] || '#94a3b8'}">${h}</th>`).join('');
+  const body = rows.map(r => `<tr><td>${r[0]}</td>${r.slice(1).map(v =>
+    `<td class="num ${v < 0 ? 'neg' : ''}">${cr(v)}</td>`).join('')}</tr>`).join('');
+  const tot = totalRow ? `<tr class="total-row"><td>${totalRow[0]}</td>${totalRow.slice(1).map(v =>
+    `<td class="num ${v < 0 ? 'neg' : ''}">${cr(v)}</td>`).join('')}</tr>` : '';
+  return `<div class="table-box">
+    <div class="table-head">${title} · ₹ Crore</div>
+    <div style="overflow-x:auto"><table><thead><tr>${th}</tr></thead><tbody>${body}${tot}</tbody></table></div>
+  </div>`;
+}
+
+function renderSegmentsTab() {
+  const P = SEG.periods, g = state.segGroup, m = state.segMeasure, view = state.segView;
+  const pill = (label, active, onclick, color) =>
+    `<button class="pill ${active ? 'active' : ''}" style="${active ? `color:${color};border-color:${color};background:${color}22` : ''}" onclick="${onclick}">${label}</button>`;
+
+  const viewPills = pill('Charts', view === 'charts', "setSeg('segView','charts')", '#38bdf8') +
+                    pill('Tables', view === 'tables', "setSeg('segView','tables')", '#38bdf8');
+  const groupPills = SEG_GROUPS.map(x => pill(x.label, g === x.key, `setSeg('segGroup','${x.key}')`, '#a78bfa')).join('');
+  const measurePills = pill('PBT', m === 'pbt', "setSeg('segMeasure','pbt')", '#34d399') +
+                       pill('Closing book', m === 'book', "setSeg('segMeasure','book')", '#34d399');
+  const gLabel = SEG_GROUPS.find(x => x.key === g).label;
+  const mLabel = m === 'pbt' ? 'PBT' : 'closing book';
+  const prods = segProducts(g);
+
+  let html = `
+    <div class="section-label">View</div>
+    <div class="pill-row">${viewPills}</div>`;
+
+  if (view === 'charts') {
+    const rowsN = prods.length, hProd = Math.max(220, rowsN * (P.length * 15 + 18) + 50);
+    html += `
+    <div class="seg-box">
+      <div class="chart-header"><span class="chart-title">Branch PBT · by year</span><span class="chart-unit">₹ Crore</span></div>
+      <div class="seg-wrap" style="height:200px"><canvas id="seg-branch"></canvas></div>
+    </div>
+
+    <div class="seg-box">
+      <div class="chart-header"><span class="chart-title">PBT by group</span><span class="chart-unit">₹ Crore</span></div>
+      <div class="seg-wrap" style="height:270px"><canvas id="seg-groups"></canvas></div>
+    </div>
+
+    <div class="section-label">Group</div>
+    <div class="pill-row">${groupPills}</div>
+    <div class="section-label">Measure</div>
+    <div class="pill-row">${measurePills}</div>
+    <div class="seg-box">
+      <div class="chart-header"><span class="chart-title">${gLabel} · ${mLabel} by product</span><span class="chart-unit">₹ Crore</span></div>
+      <div class="seg-wrap" style="height:${hProd}px"><canvas id="seg-products"></canvas></div>
+    </div>
+    <div class="seg-note">${SEG_OTHERS_NOTE[g]}</div>
+
+    ${segPieBox('seg-pie-group', 'PBT split · by group', segGroupPie())}
+    ${segPieBox('seg-pie-asset', 'PBT split · asset products', segAssetPie())}
+    <div class="seg-note">Pies show YTD Oct'26 (Apr–Oct 2026) only. SCF and FCNR Leverage are about zero and not shown.</div>`;
+  } else {
+    // group PBT table
+    const gk = ['RAPG','RLG','WBG','BB','RIBG','Others'];
+    html += segTable('PBT by group', ['Group', ...P],
+      gk.map(k => [SEG_GROUP_LABEL[k], ...P.map(p => SEG.groupPBT[p][k])]),
+      ['Branch total', ...P.map(p => SEG.groupPBT[p]._total)]);
+    // selected group: PBT + closing book per product
+    html += `<div class="section-label">Group</div><div class="pill-row">${groupPills}</div>`;
+    const sumRow = key => ['Total', ...P.map(p => prods.reduce((s,k) => s + SEG.groups[g][p][key][k], 0))];
+    html += segTable(`${gLabel} · PBT by product`, ['Product', ...P],
+      prods.map(k => [segPlabel(k), ...P.map(p => SEG.groups[g][p].pbt[k])]), sumRow('pbt'));
+    html += segTable(`${gLabel} · Advances closing book`, ['Product', ...P],
+      prods.map(k => [segPlabel(k), ...P.map(p => SEG.groups[g][p].book[k])]), sumRow('book'));
+    // branch by year
+    const by = Object.keys(SEG.branchPBT);
+    html += segTable('Branch PBT · by year', ['', ...by], [['Branch PBT', ...by.map(y => SEG.branchPBT[y])]]);
+    html += `<div class="seg-note">${SEG_OTHERS_NOTE[g]} YTD Oct'26 = Apr–Oct 2026.</div>`;
+  }
+  return html;
+}
+
+function setSeg(key, val) { state[key] = val; render(); }
+
+function buildSegCharts() {
+  segCharts.forEach(c => c.destroy());
+  segCharts = [];
+  if (state.segView !== 'charts') return;
+
+  const P = SEG.periods;
+  const tick = { color: '#64748b', font: { family: 'DM Mono', size: 10 } };
+  const grid = { color: '#1e3a5f55' };
+  const tip = fmt => ({
+    backgroundColor: '#0f1729', borderColor: '#1e3a5f', borderWidth: 1,
+    titleColor: '#64748b', titleFont: { family: 'DM Mono', size: 11 },
+    bodyColor: '#e2e8f0', bodyFont: { family: 'DM Mono', size: 12 }, padding: 12,
+    callbacks: { label: fmt },
+  });
+  const legend = { labels: { color: '#94a3b8', font: { family: 'DM Mono', size: 11 }, boxWidth: 12, padding: 14 } };
+  const axisNum = v => (Math.round(v * 100) / 100).toString();
+  const bar = (period, data, horizontal) => ({
+    label: period, data,
+    backgroundColor: SEG_PERIOD_COLORS[period], borderColor: SEG_SURFACE, borderWidth: 2,
+    borderRadius: 4, borderSkipped: 'start', maxBarThickness: 22,
+  });
+  const make = (id, cfg) => { const el = document.getElementById(id); if (el) segCharts.push(new Chart(el, cfg)); };
+
+  // 1) Branch PBT by year (single series: no legend, bars coloured by year)
+  const by = Object.keys(SEG.branchPBT);
+  make('seg-branch', {
+    type: 'bar',
+    data: { labels: by, datasets: [{
+      label: 'Branch PBT', data: by.map(y => SEG.branchPBT[y]),
+      backgroundColor: by.map(y => SEG_PERIOD_COLORS[y]), borderColor: SEG_SURFACE, borderWidth: 2,
+      borderRadius: 4, borderSkipped: 'start', maxBarThickness: 40,
+    }] },
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: tip(c => ` Branch PBT: ₹${c.parsed.y.toFixed(2)} Cr`) },
+      scales: { x: { ticks: tick, grid: { display: false } }, y: { ticks: { ...tick, callback: axisNum }, grid } } },
+  });
+
+  // 2) PBT by group × period
+  const gk = ['RAPG','RLG','WBG','BB','RIBG'];
+  make('seg-groups', {
+    type: 'bar',
+    data: { labels: gk.map(k => SEG_GROUP_LABEL[k]), datasets: P.map(p => bar(p, gk.map(k => SEG.groupPBT[p][k]))) },
+    options: { responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: { legend, tooltip: tip(c => ` ${c.dataset.label}: ₹${c.parsed.y.toFixed(2)} Cr`) },
+      scales: { x: { ticks: { ...tick, maxRotation: 0, autoSkip: false, font: { family: 'DM Mono', size: 9 } }, grid: { display: false } }, y: { ticks: { ...tick, callback: axisNum }, grid } } },
+  });
+
+  // 3) Products of the selected group (horizontal so long names fit)
+  const g = state.segGroup, m = state.segMeasure, prods = segProducts(g);
+  make('seg-products', {
+    type: 'bar',
+    data: { labels: prods.map(segPlabel), datasets: P.map(p => bar(p, prods.map(k => SEG.groups[g][p][m][k]), true)) },
+    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', axis: 'y', intersect: false },
+      plugins: { legend, tooltip: tip(c => ` ${c.dataset.label}: ₹${c.parsed.x.toFixed(2)} Cr`) },
+      scales: { x: { ticks: { ...tick, callback: axisNum }, grid }, y: { ticks: { ...tick, color: '#94a3b8', autoSkip: false }, grid: { display: false } } } },
+  });
+
+  // 4) Pies (YTD Oct'26)
+  const pie = (id, rows) => make(id, {
+    type: 'pie',
+    data: { labels: rows.map(r => r.name), datasets: [{
+      data: rows.map(r => r.value), backgroundColor: rows.map(r => r.color),
+      borderColor: SEG_SURFACE, borderWidth: 2, hoverOffset: 6 }] },
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false },
+        tooltip: tip(c => { const t = c.dataset.data.reduce((a,b) => a + b, 0);
+          return ` ${c.label}: ₹${c.parsed.toFixed(2)} Cr · ${(c.parsed / t * 100).toFixed(1)}%`; }) } },
+  });
+  pie('seg-pie-group', segGroupPie());
+  pie('seg-pie-asset', segAssetPie());
 }
 
 // ─── DATA MANAGEMENT TAB ─────────────────────────────────────────────────────
