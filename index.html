@@ -364,7 +364,13 @@ const DEFAULT_DATA = {
     {m:"Mar",NII:2.6,Fee:2.8,Other:0.4,Total:5.8,Opex:-2.6,COP:3.2,CL:-0.1,PBT:3.1},
   ],
   "FY2026-27": [
-    {m:"Apr",NII:2.7,Fee:2.1,Other:0.4,Total:5.2,Opex:-2.4,COP:2.8,CL:-0.1,PBT:2.7},
+    {m:"Apr",NII:2.7,Fee:2.1,Other:0.4,Total:5.2,Opex:-2.4,COP:2.9,CL:0.0,PBT:2.9},
+    {m:"May",NII:2.8,Fee:2.6,Other:0.4,Total:5.8,Opex:-2.6,COP:3.2,CL:-0.3,PBT:2.9},
+    {m:"Jun",NII:2.8,Fee:2.7,Other:0.7,Total:6.2,Opex:-2.7,COP:3.6,CL:-0.1,PBT:3.5},
+    {m:"Jul",NII:2.8,Fee:2.8,Other:0.6,Total:6.2,Opex:-2.7,COP:3.5,CL:-0.4,PBT:3.1},
+    {m:"Aug",NII:3.3,Fee:4.8,Other:0.6,Total:8.7,Opex:-2.8,COP:5.9,CL:0.0,PBT:5.9},
+    {m:"Sep",NII:3.5,Fee:2.8,Other:0.6,Total:7.0,Opex:-2.7,COP:4.3,CL:0.9,PBT:5.2},
+    {m:"Oct",NII:3.1,Fee:3.0,Other:0.6,Total:6.7,Opex:-3.1,COP:3.6,CL:1.1,PBT:4.8},
   ],
 };
 
@@ -405,6 +411,15 @@ function loadState() {
     const saved = localStorage.getItem('pnl_data');
     if (saved) state.data = JSON.parse(saved);
     else state.data = JSON.parse(JSON.stringify(DEFAULT_DATA));
+    // One-time fix: replace FY2026-27 Apr–Oct with the bank's Self Analysis figures (months after Oct are kept)
+    if (localStorage.getItem('pnl_fix') !== 'fy27-oct26') {
+      const fix = JSON.parse(JSON.stringify(DEFAULT_DATA['FY2026-27']));
+      const fixed = fix.map(d => d.m);
+      const kept = (state.data['FY2026-27'] || []).filter(d => !fixed.includes(d.m));
+      state.data['FY2026-27'] = fix.concat(kept).sort((a,b) => MONTHS.indexOf(a.m) - MONTHS.indexOf(b.m));
+      localStorage.setItem('pnl_data', JSON.stringify(state.data));
+      localStorage.setItem('pnl_fix', 'fy27-oct26');
+    }
     const savedFYs = localStorage.getItem('pnl_selectedFYs');
     state.selectedFYs = savedFYs ? JSON.parse(savedFYs) : Object.keys(state.data);
     const banner = localStorage.getItem('pnl_banner');
