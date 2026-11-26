@@ -252,7 +252,7 @@
   <div class="modal">
     <div class="modal-handle"></div>
     <div class="modal-title">Add Month Data</div>
-    <div class="modal-sub">Enter values in ₹ Millions</div>
+    <div class="modal-sub">Enter NII, Fee, Other, Opex, Credit Loss in ₹ Millions. Total Income, Core Op Profit and PBT are calculated.</div>
     <div class="form-grid">
       <div class="form-group full">
         <div class="form-label">Month & Year</div>
@@ -277,35 +277,35 @@
       </div>
       <div class="form-group">
         <div class="form-label">NII</div>
-        <input type="number" step="0.01" class="form-input" id="f-nii" placeholder="0.00"/>
+        <input type="number" step="0.01" class="form-input" id="f-nii" placeholder="0.00" oninput="recalcForm()"/>
       </div>
       <div class="form-group">
         <div class="form-label">Fee Income</div>
-        <input type="number" step="0.01" class="form-input" id="f-fee" placeholder="0.00"/>
+        <input type="number" step="0.01" class="form-input" id="f-fee" placeholder="0.00" oninput="recalcForm()"/>
       </div>
       <div class="form-group">
         <div class="form-label">Other Income</div>
-        <input type="number" step="0.01" class="form-input" id="f-other" placeholder="0.00"/>
+        <input type="number" step="0.01" class="form-input" id="f-other" placeholder="0.00" oninput="recalcForm()"/>
       </div>
       <div class="form-group">
-        <div class="form-label">Total Income</div>
-        <input type="number" step="0.01" class="form-input" id="f-total" placeholder="0.00"/>
+        <div class="form-label">Total Income (auto)</div>
+        <input type="number" step="0.01" class="form-input" id="f-total" placeholder="0.00" readonly style="color:#34d399"/>
       </div>
       <div class="form-group">
-        <div class="form-label">Opex (negative)</div>
-        <input type="number" step="0.01" class="form-input" id="f-opex" placeholder="-0.00"/>
+        <div class="form-label">Opex (enter as cost)</div>
+        <input type="number" step="0.01" class="form-input" id="f-opex" placeholder="0.00" oninput="recalcForm()"/>
       </div>
       <div class="form-group">
-        <div class="form-label">Core Op Profit</div>
-        <input type="number" step="0.01" class="form-input" id="f-cop" placeholder="0.00"/>
+        <div class="form-label">Core Op Profit (auto)</div>
+        <input type="number" step="0.01" class="form-input" id="f-cop" placeholder="0.00" readonly style="color:#34d399"/>
       </div>
       <div class="form-group">
         <div class="form-label">Credit Loss</div>
-        <input type="number" step="0.01" class="form-input" id="f-cl" placeholder="-0.00"/>
+        <input type="number" step="0.01" class="form-input" id="f-cl" placeholder="-0.00 loss, + write-back" oninput="recalcForm()"/>
       </div>
       <div class="form-group">
-        <div class="form-label">PBT</div>
-        <input type="number" step="0.01" class="form-input" id="f-pbt" placeholder="0.00"/>
+        <div class="form-label">PBT (auto)</div>
+        <input type="number" step="0.01" class="form-input" id="f-pbt" placeholder="0.00" readonly style="color:#34d399"/>
       </div>
     </div>
     <div class="form-actions">
@@ -1153,20 +1153,31 @@ function closeAddModal() {
   document.getElementById('add-modal').classList.remove('open');
 }
 
+// Total Income = NII + Fee + Other; Core Op Profit = Total Income − Opex; PBT = Core Op Profit + Credit Loss
+// (Credit Loss: negative = loss, reduces PBT; positive = write-back, adds to PBT)
+function calcMonth() {
+  const v = id => parseFloat(document.getElementById(id).value) || 0;
+  const r2 = x => Math.round(x * 100) / 100;
+  const nii = v('f-nii'), fee = v('f-fee'), other = v('f-other');
+  const opex = -Math.abs(v('f-opex'));   // stored as a negative number
+  const cl = v('f-cl');
+  const total = r2(nii + fee + other);
+  const cop = r2(total + opex);
+  const pbt = r2(cop + cl);
+  return { NII: nii, Fee: fee, Other: other, Total: total, Opex: opex, COP: cop, CL: cl, PBT: pbt };
+}
+
+function recalcForm() {
+  const c = calcMonth();
+  document.getElementById('f-total').value = c.Total.toFixed(2);
+  document.getElementById('f-cop').value = c.COP.toFixed(2);
+  document.getElementById('f-pbt').value = c.PBT.toFixed(2);
+}
+
 function saveMonth() {
   const month = document.getElementById('f-month').value;
   const fy = document.getElementById('f-fy').value;
-  const entry = {
-    m: month,
-    NII: parseFloat(document.getElementById('f-nii').value) || 0,
-    Fee: parseFloat(document.getElementById('f-fee').value) || 0,
-    Other: parseFloat(document.getElementById('f-other').value) || 0,
-    Total: parseFloat(document.getElementById('f-total').value) || 0,
-    Opex: parseFloat(document.getElementById('f-opex').value) || 0,
-    COP: parseFloat(document.getElementById('f-cop').value) || 0,
-    CL: parseFloat(document.getElementById('f-cl').value) || 0,
-    PBT: parseFloat(document.getElementById('f-pbt').value) || 0,
-  };
+  const entry = { m: month, ...calcMonth() };
   if (!state.data[fy]) state.data[fy] = [];
   // Remove existing entry for same month if any
   state.data[fy] = state.data[fy].filter(d => d.m !== month);
